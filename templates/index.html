@@ -668,18 +668,26 @@
         }
         if (e.target.classList.contains('select-btn')) {
             const lang = e.target.dataset.lang;
-            // Radio behavior: deselect all in this language column
-            document.querySelectorAll('#results-container .select-btn[data-lang="' + lang + '"]').forEach(btn => {
-                btn.classList.remove('selected');
-                btn.textContent = '';
-                btn.closest('.trans-cell').classList.remove('cell-selected');
-            });
-            // Select this one
-            e.target.classList.add('selected');
-            e.target.textContent = '✓';
-            const cell = e.target.closest('.trans-cell');
-            cell.classList.add('cell-selected');
-            glossarySelections[lang] = cell.dataset.raw;
+            if (e.target.classList.contains('selected')) {
+                // Toggle off: deselect this one
+                e.target.classList.remove('selected');
+                e.target.textContent = '';
+                e.target.closest('.trans-cell').classList.remove('cell-selected');
+                delete glossarySelections[lang];
+            } else {
+                // Radio behavior: deselect all in this language column
+                document.querySelectorAll('#results-container .select-btn[data-lang="' + lang + '"]').forEach(btn => {
+                    btn.classList.remove('selected');
+                    btn.textContent = '';
+                    btn.closest('.trans-cell').classList.remove('cell-selected');
+                });
+                // Select this one
+                e.target.classList.add('selected');
+                e.target.textContent = '✓';
+                const cell = e.target.closest('.trans-cell');
+                cell.classList.add('cell-selected');
+                glossarySelections[lang] = cell.dataset.raw;
+            }
             checkGlossaryReady();
         }
         if (e.target.classList.contains('check-btn')) {
