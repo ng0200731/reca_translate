@@ -255,6 +255,7 @@ button:disabled { background: #666; cursor: not-allowed; }
     display: flex; align-items: center; gap: 15px;
 }
 .add-glossary-bar span { font-size: 14px; }
+.add-glossary-bar button:disabled { opacity: 0.5; cursor: not-allowed; }
 .glossary-progress {
     font-size: 12px; color: #888; margin-top: 6px;
 }

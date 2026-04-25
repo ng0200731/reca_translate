@@ -31,6 +31,7 @@
                     <div class="glossary-col">
                         <div class="glossary-col-header">Glossary matches found:</div>
                         <div id="glossary-hint" class="hidden">
+                            <div id="glossary-hint-empty" class="hidden" style="font-size:13px;color:#888;padding:6px 0;">No glossary matches found.</div>
                             <table class="hint-table">
                                 <thead><tr><th>Term</th><th>Spanish</th><th>French</th><th>German</th><th>Korean</th><th>Chinese</th><th>Japanese</th></tr></thead>
                                 <tbody id="hint-body"></tbody>
@@ -363,12 +364,18 @@
         }
 
         const matched = glossaryCache.filter(t => text.includes(t.term_en.toLowerCase()));
+        const hintEl = document.getElementById('glossary-hint');
+        const emptyEl = document.getElementById('glossary-hint-empty');
+        const tbody = document.getElementById('hint-body');
+        hintEl.classList.remove('hidden');
+
         if (!matched.length) {
-            document.getElementById('glossary-hint').classList.add('hidden');
+            emptyEl.classList.remove('hidden');
+            tbody.innerHTML = '';
             return;
         }
 
-        const tbody = document.getElementById('hint-body');
+        emptyEl.classList.add('hidden');
         tbody.innerHTML = '';
         for (const term of matched) {
             const tr = document.createElement('tr');
@@ -378,7 +385,6 @@
             `;
             tbody.appendChild(tr);
         }
-        document.getElementById('glossary-hint').classList.remove('hidden');
     }
 
     /* ================================================================
@@ -492,7 +498,12 @@
         if (bar) {
             const countEl = document.getElementById('glossary-count');
             if (countEl) countEl.textContent = selectedCount + '/' + selectedLangs.length + ' selected';
-            bar.classList.toggle('hidden', !allSelected);
+            const btn = document.getElementById('add-glossary-btn');
+            if (btn) {
+                btn.disabled = !allSelected;
+                btn.title = allSelected ? '' : 'Select a translation for every language first';
+            }
+            bar.classList.toggle('hidden', selectedLangs.length === 0);
         }
     }
 
@@ -701,6 +712,12 @@
 
     // Add to Glossary modal handlers
     document.getElementById('add-glossary-btn')?.addEventListener('click', () => {
+        const selectedLangs = Array.from(document.querySelectorAll('input[name="languages"]:checked')).map(cb => cb.value);
+        const missing = selectedLangs.filter(l => !glossarySelections[l]);
+        if (missing.length > 0) {
+            alert('Please select a translation for: ' + missing.map(l => LANG_NAMES[l] || l).join(', '));
+            return;
+        }
         const inputText = document.getElementById('input-text').value.trim();
         document.getElementById('gloss-term').value = inputText;
         // Show selected translations
