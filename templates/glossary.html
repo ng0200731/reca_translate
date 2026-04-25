@@ -1,0 +1,266 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Glossary Management</title>
+    <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+    <nav>
+        <a href="/">Translate</a>
+        <a href="/glossary" class="active">Glossary</a>
+        <a href="/settings">Settings</a>
+    </nav>
+
+    <main>
+        <h1>Glossary Management</h1>
+
+        <div class="controls">
+            <div class="form-group">
+                <label for="search">Search</label>
+                <input type="text" id="search" placeholder="Search terms...">
+            </div>
+            <div class="form-group">
+                <label for="category-filter">Category</label>
+                <select id="category-filter">
+                    <option value="">All Categories</option>
+                    {% for cat in categories %}
+                    <option value="{{ cat }}">{{ cat }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <button id="add-term-btn">Add Term</button>
+        </div>
+
+        <table id="glossary-table">
+            <thead>
+                <tr>
+                    <th>ID</th>
+                    <th>English</th>
+                    <th>Category</th>
+                    <th>Spanish</th>
+                    <th>French</th>
+                    <th>German</th>
+                    <th>Korean</th>
+                    <th>Chinese</th>
+                    <th>Japanese</th>
+                    <th>Actions</th>
+                </tr>
+            </thead>
+            <tbody id="terms-body"></tbody>
+        </table>
+
+        <div id="add-modal" class="modal hidden">
+            <div class="modal-content">
+                <h2>Add New Term</h2>
+                <form id="add-form">
+                    <input type="text" name="website" style="display:none" tabindex="-1" autocomplete="off">
+
+                    <div class="form-group">
+                        <label for="new-term">English Term</label>
+                        <input type="text" id="new-term" name="term_en" required>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="new-category">Category</label>
+                        <select id="new-category" name="category" required>
+                            {% for cat in categories %}
+                            <option value="{{ cat }}">{{ cat }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+
+                    <div class="form-group">
+                        <label>Translations</label>
+                        <input type="text" id="trans-es" name="trans_es" placeholder="Spanish">
+                        <input type="text" id="trans-fr" name="trans_fr" placeholder="French">
+                        <input type="text" id="trans-de" name="trans_de" placeholder="German">
+                        <input type="text" id="trans-ko" name="trans_ko" placeholder="Korean">
+                        <input type="text" id="trans-zh" name="trans_zh" placeholder="Chinese">
+                        <input type="text" id="trans-ja" name="trans_ja" placeholder="Japanese">
+                    </div>
+
+                    <div class="modal-actions">
+                        <button type="submit">Add</button>
+                        <button type="button" id="cancel-add">Cancel</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+
+        <div id="edit-modal" class="modal hidden">
+            <div class="modal-content">
+                <h2>Edit Translation</h2>
+                <form id="edit-form">
+                    <div class="form-group">
+                        <label>Term: <span id="edit-term-name"></span></label>
+                    </div>
+                    <div class="form-group">
+                        <label for="edit-language">Language</label>
+                        <span id="edit-language"></span>
+                    </div>
+                    <div class="form-group">
+                        <label for="edit-translation">Translation</label>
+                        <input type="text" id="edit-translation" name="translation" required>
+                    </div>
+                    <input type="hidden" id="edit-term-id">
+                    <input type="hidden" id="edit-lang-code">
+                    <div class="modal-actions">
+                        <button type="submit">Save</button>
+                        <button type="button" id="cancel-edit">Cancel</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </main>
+
+    <script>
+    const LANG_NAMES = {
+        'es': 'Spanish', 'fr': 'French', 'de': 'German',
+        'ko': 'Korean', 'zh-CN': 'Chinese', 'ja': 'Japanese'
+    };
+    const LANG_COLS = ['es', 'fr', 'de', 'ko', 'zh-CN', 'ja'];
+
+    let terms = [];
+
+    async function loadTerms() {
+        const search = document.getElementById('search').value;
+        const category = document.getElementById('category-filter').value;
+
+        let url = '/api/terms';
+        if (search) url += '?search=' + encodeURIComponent(search);
+        else if (category) url += '?category=' + encodeURIComponent(category);
+
+        const resp = await fetch(url);
+        const data = await resp.json();
+        terms = data.terms;
+        renderTable();
+    }
+
+    function renderTable() {
+        const tbody = document.getElementById('terms-body');
+        tbody.innerHTML = '';
+
+        for (const term of terms) {
+            const tr = document.createElement('tr');
+            tr.innerHTML = `
+                <td>${term.id}</td>
+                <td>${escapeHtml(term.term_en)}</td>
+                <td>${escapeHtml(term.category)}</td>
+                ${LANG_COLS.map(lang => `
+                    <td class="trans-cell">
+                        <span>${escapeHtml(term.translations[lang] || '')}</span>
+                        <button class="edit-btn" data-id="${term.id}" data-lang="${lang}" data-term="${escapeAttr(term.term_en)}" data-trans="${escapeAttr(term.translations[lang] || '')}">Edit</button>
+                    </td>
+                `).join('')}
+                <td>
+                    <button class="verify-btn" data-id="${term.id}">Verify</button>
+                </td>
+            `;
+            tbody.appendChild(tr);
+        }
+    }
+
+    document.getElementById('search').addEventListener('input', loadTerms);
+    document.getElementById('category-filter').addEventListener('change', loadTerms);
+
+    document.getElementById('add-term-btn').addEventListener('click', () => {
+        document.getElementById('add-modal').classList.remove('hidden');
+    });
+
+    document.getElementById('cancel-add').addEventListener('click', () => {
+        document.getElementById('add-modal').classList.add('hidden');
+    });
+
+    document.getElementById('add-form').addEventListener('submit', async (e) => {
+        e.preventDefault();
+
+        const term_en = document.getElementById('new-term').value.trim();
+        const category = document.getElementById('new-category').value;
+
+        const translations = {};
+        LANG_COLS.forEach(lang => {
+            const input = document.getElementById('trans-' + lang.replace('zh-CN', 'zh'));
+            if (input && input.value.trim()) {
+                translations[lang] = input.value.trim();
+            }
+        });
+
+        const resp = await fetch('/api/terms', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({term_en, category, translations})
+        });
+
+        const data = await resp.json();
+        if (data.ok) {
+            document.getElementById('add-modal').classList.add('hidden');
+            loadTerms();
+        } else {
+            alert('Error: ' + data.error);
+        }
+    });
+
+    document.getElementById('terms-body').addEventListener('click', (e) => {
+        if (e.target.classList.contains('edit-btn')) {
+            const id = e.target.getAttribute('data-id');
+            const lang = e.target.getAttribute('data-lang');
+            const termName = e.target.getAttribute('data-term');
+            const trans = e.target.getAttribute('data-trans');
+
+            document.getElementById('edit-term-id').value = id;
+            document.getElementById('edit-lang-code').value = lang;
+            document.getElementById('edit-term-name').textContent = termName;
+            document.getElementById('edit-language').textContent = LANG_NAMES[lang];
+            document.getElementById('edit-translation').value = trans;
+
+            document.getElementById('edit-modal').classList.remove('hidden');
+        }
+
+        if (e.target.classList.contains('verify-btn')) {
+            const id = e.target.getAttribute('data-id');
+            fetch(`/api/terms/${id}/verify`, {method: 'POST'});
+            e.target.textContent = 'Verified';
+            e.target.disabled = true;
+        }
+    });
+
+    document.getElementById('cancel-edit').addEventListener('click', () => {
+        document.getElementById('edit-modal').classList.add('hidden');
+    });
+
+    document.getElementById('edit-form').addEventListener('submit', async (e) => {
+        e.preventDefault();
+
+        const term_id = document.getElementById('edit-term-id').value;
+        const language = document.getElementById('edit-lang-code').value;
+        const translation = document.getElementById('edit-translation').value.trim();
+
+        const resp = await fetch(`/api/terms/${term_id}/translations`, {
+            method: 'PUT',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({language, translation})
+        });
+
+        const data = await resp.json();
+        if (data.ok) {
+            document.getElementById('edit-modal').classList.add('hidden');
+            loadTerms();
+        }
+    });
+
+    function escapeHtml(s) {
+        const d = document.createElement('div');
+        d.textContent = s || '';
+        return d.innerHTML;
+    }
+
+    function escapeAttr(s) {
+        return (s || '').replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+    }
+
+    loadTerms();
+    </script>
+</body>
+</html>

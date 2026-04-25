@@ -1,0 +1,645 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Garment Translation</title>
+    <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+    <nav>
+        <a href="#" class="tab-link active" data-tab="translate">Translate</a>
+        <a href="#" class="tab-link" data-tab="glossary">Glossary</a>
+        <a href="#" class="tab-link" data-tab="settings">Settings</a>
+    </nav>
+
+    <main>
+        <!-- ==================== TRANSLATE TAB ==================== -->
+        <div id="tab-translate" class="tab-panel">
+            <h1>Garment Fabric & Care Translation</h1>
+
+            <form id="translate-form">
+                <input type="text" name="website" style="display:none" tabindex="-1" autocomplete="off">
+
+                <div class="form-group">
+                    <label for="input-text">English Input</label>
+                    <textarea id="input-text" name="text" rows="5" placeholder="Enter fabric content and care instructions in English...&#10;&#10;Example:&#10;100% Cotton&#10;Machine wash cold. Tumble dry low. Do not bleach."></textarea>
+                </div>
+
+                <div id="glossary-hint" class="hidden">
+                    <div class="hint-header">Glossary matches found:</div>
+                    <table class="hint-table">
+                        <thead><tr><th>Term</th><th>Spanish</th><th>French</th><th>German</th><th>Korean</th><th>Chinese</th><th>Japanese</th></tr></thead>
+                        <tbody id="hint-body"></tbody>
+                    </table>
+                </div>
+
+                <div class="form-group">
+                    <label>Target Languages</label>
+                    <div class="checkbox-group">
+                        <label class="check-label"><input type="checkbox" name="languages" value="es" checked> Spanish</label>
+                        <label class="check-label"><input type="checkbox" name="languages" value="fr" checked> French</label>
+                        <label class="check-label"><input type="checkbox" name="languages" value="de" checked> German</label>
+                        <label class="check-label"><input type="checkbox" name="languages" value="ko" checked> Korean</label>
+                        <label class="check-label"><input type="checkbox" name="languages" value="zh-CN" checked> Chinese</label>
+                        <label class="check-label"><input type="checkbox" name="languages" value="ja" checked> Japanese</label>
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <label>Models (select multiple)</label>
+                    <div class="checkbox-group">
+                        {% for m in all_models %}
+                        <label class="check-label">
+                            <input type="checkbox" name="models" value="{{ m.backend }}::{{ m.model }}" checked>
+                            {{ m.short_name }}
+                        </label>
+                        {% endfor %}
+                        {% if not all_models %}
+                        <em>No API keys configured — go to Settings</em>
+                        {% endif %}
+                    </div>
+                </div>
+
+                <button type="submit" id="translate-btn">Translate</button>
+            </form>
+
+            <div id="results" class="hidden">
+                <h2>Translation Results</h2>
+                <div id="results-container"></div>
+            </div>
+        </div>
+
+        <!-- ==================== GLOSSARY TAB ==================== -->
+        <div id="tab-glossary" class="tab-panel hidden">
+            <h1>Glossary Management</h1>
+
+            <div class="controls">
+                <div class="form-group">
+                    <label for="search">Search</label>
+                    <input type="text" id="search" placeholder="Search terms...">
+                </div>
+                <div class="form-group">
+                    <label for="category-filter">Category</label>
+                    <select id="category-filter">
+                        <option value="">All Categories</option>
+                        {% for cat in categories %}
+                        <option value="{{ cat }}">{{ cat }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <button id="add-term-btn">Add Term</button>
+            </div>
+
+            <table id="glossary-table">
+                <thead>
+                    <tr>
+                        <th class="sortable" data-col="id">ID <span class="sort-arrow"></span></th>
+                        <th class="sortable" data-col="term_en">English <span class="sort-arrow"></span></th>
+                        <th class="sortable" data-col="category">Category <span class="sort-arrow"></span></th>
+                        <th class="sortable" data-col="es">Spanish <span class="sort-arrow"></span></th>
+                        <th class="sortable" data-col="fr">French <span class="sort-arrow"></span></th>
+                        <th class="sortable" data-col="de">German <span class="sort-arrow"></span></th>
+                        <th class="sortable" data-col="ko">Korean <span class="sort-arrow"></span></th>
+                        <th class="sortable" data-col="zh-CN">Chinese <span class="sort-arrow"></span></th>
+                        <th class="sortable" data-col="ja">Japanese <span class="sort-arrow"></span></th>
+                        <th>Actions</th>
+                    </tr>
+                    <tr class="filter-row">
+                        <th></th>
+                        <th><input type="text" class="col-filter" data-col="term_en" placeholder="Filter..."></th>
+                        <th><input type="text" class="col-filter" data-col="category" placeholder="Filter..."></th>
+                        <th><input type="text" class="col-filter" data-col="es" placeholder="Filter..."></th>
+                        <th><input type="text" class="col-filter" data-col="fr" placeholder="Filter..."></th>
+                        <th><input type="text" class="col-filter" data-col="de" placeholder="Filter..."></th>
+                        <th><input type="text" class="col-filter" data-col="ko" placeholder="Filter..."></th>
+                        <th><input type="text" class="col-filter" data-col="zh-CN" placeholder="Filter..."></th>
+                        <th><input type="text" class="col-filter" data-col="ja" placeholder="Filter..."></th>
+                        <th></th>
+                    </tr>
+                </thead>
+                <tbody id="terms-body"></tbody>
+            </table>
+
+            <div id="add-modal" class="modal hidden">
+                <div class="modal-content">
+                    <h2>Add New Term</h2>
+                    <form id="add-form">
+                        <input type="text" name="website" style="display:none" tabindex="-1" autocomplete="off">
+                        <div class="form-group">
+                            <label for="new-term">English Term</label>
+                            <input type="text" id="new-term" name="term_en" required>
+                        </div>
+                        <div class="form-group">
+                            <label for="new-category">Category</label>
+                            <select id="new-category" name="category" required>
+                                {% for cat in categories %}
+                                <option value="{{ cat }}">{{ cat }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label>Translations</label>
+                            <input type="text" id="trans-es" placeholder="Spanish">
+                            <input type="text" id="trans-fr" placeholder="French">
+                            <input type="text" id="trans-de" placeholder="German">
+                            <input type="text" id="trans-ko" placeholder="Korean">
+                            <input type="text" id="trans-zh" placeholder="Chinese">
+                            <input type="text" id="trans-ja" placeholder="Japanese">
+                        </div>
+                        <div class="modal-actions">
+                            <button type="submit">Add</button>
+                            <button type="button" id="cancel-add">Cancel</button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+
+            <div id="edit-modal" class="modal hidden">
+                <div class="modal-content">
+                    <h2>Edit Translation</h2>
+                    <form id="edit-form">
+                        <div class="form-group"><label>Term: <span id="edit-term-name"></span></label></div>
+                        <div class="form-group"><label>Language: <span id="edit-language"></span></label></div>
+                        <div class="form-group">
+                            <label for="edit-translation">Translation</label>
+                            <input type="text" id="edit-translation" name="translation" required>
+                        </div>
+                        <input type="hidden" id="edit-term-id">
+                        <input type="hidden" id="edit-lang-code">
+                        <div class="modal-actions">
+                            <button type="submit">Save</button>
+                            <button type="button" id="cancel-edit">Cancel</button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+
+        <!-- ==================== SETTINGS TAB ==================== -->
+        <div id="tab-settings" class="tab-panel hidden">
+            <h1>LLM Provider Settings</h1>
+            <p class="hint">Configure API keys and models. Keys are stored locally in <code>.tmp/llm_settings.json</code>.</p>
+
+            <form id="settings-form">
+                <input type="text" name="website" style="display:none" tabindex="-1" autocomplete="off">
+
+                {% for name in all_backends %}
+                <div class="provider-card">
+                    <h2>{{ provider_labels[name] }} <span class="status {{ 'connected' if providers[name].has_key else 'disconnected' }}">{{ 'Connected' if providers[name].has_key else 'No API Key' }}</span></h2>
+                    <div class="form-group">
+                        <label for="key-{{ name }}">API Key</label>
+                        <input type="password" id="key-{{ name }}" data-provider="{{ name }}" class="api-key-input"
+                               placeholder="Enter your {{ provider_labels[name] }} API key"
+                               value="{{ providers[name].api_key }}">
+                    </div>
+                    {% if name == 'openrouter' %}
+                    <div class="form-group">
+                        <label for="url-{{ name }}">Base URL</label>
+                        <input type="text" id="url-{{ name }}" data-provider="{{ name }}" class="base-url-input"
+                               value="{{ providers[name].base_url or 'https://openrouter.ai/api/v1' }}">
+                    </div>
+                    <div class="form-group">
+                        <label>Models (select multiple)</label>
+                        <div class="checkbox-group model-checks" data-provider="openrouter">
+                            {% for m in openrouter_models %}
+                            <label class="check-label">
+                                <input type="checkbox" class="or-model-cb" value="{{ m }}"
+                                {{ 'checked' if m in providers[name].models or (not providers[name].models and m == 'nvidia/nemotron-3-super-120b-a12b:free') else '' }}>
+                                {{ m.split('/')[-1] }}
+                            </label>
+                            {% endfor %}
+                        </div>
+                    </div>
+                    <p class="hint">Free models. <a href="https://openrouter.ai/keys" target="_blank">Get API key &rarr;</a></p>
+                    {% elif name == 'openai' %}
+                    <div class="form-group">
+                        <label for="model-{{ name }}">Model</label>
+                        <input type="text" id="model-{{ name }}" data-provider="{{ name }}" class="model-input"
+                               value="{{ providers[name].model or 'gpt-4o' }}" placeholder="gpt-4o">
+                    </div>
+                    {% elif name == 'anthropic' %}
+                    <div class="form-group">
+                        <label for="model-{{ name }}">Model</label>
+                        <input type="text" id="model-{{ name }}" data-provider="{{ name }}" class="model-input"
+                               value="{{ providers[name].model or 'claude-sonnet-4-20250514' }}" placeholder="claude-sonnet-4-20250514">
+                    </div>
+                    {% elif name == 'gemini' %}
+                    <div class="form-group">
+                        <label for="model-{{ name }}">Model</label>
+                        <select id="model-{{ name }}" data-provider="{{ name }}" class="model-input">
+                            <option value="gemini-2.5-flash" {{ 'selected' if providers[name].model == 'gemini-2.5-flash' or not providers[name].model else '' }}>gemini-2.5-flash</option>
+                            <option value="gemini-2.0-flash" {{ 'selected' if providers[name].model == 'gemini-2.0-flash' else '' }}>gemini-2.0-flash</option>
+                            <option value="gemini-2.5-pro" {{ 'selected' if providers[name].model == 'gemini-2.5-pro' else '' }}>gemini-2.5-pro</option>
+                        </select>
+                    </div>
+                    <p class="hint">Free tier available. <a href="https://aistudio.google.com/app/apikeys" target="_blank">Get API key &rarr;</a></p>
+                    {% endif %}
+                </div>
+                {% endfor %}
+
+                <button type="submit" id="save-btn">Save Settings</button>
+            </form>
+            <div id="save-result" class="hidden"></div>
+        </div>
+    </main>
+
+    <script>
+    /* ================================================================
+       SHARED
+       ================================================================ */
+    const LANG_NAMES = {'es':'Spanish','fr':'French','de':'German','ko':'Korean','zh-CN':'Chinese','ja':'Japanese'};
+    const LANG_COLS = ['es','fr','de','ko','zh-CN','ja'];
+    const LANG_SHORT = {'es':'ES','fr':'FR','de':'DE','ko':'KO','zh-CN':'ZH','ja':'JA'};
+
+    function escapeHtml(s) { const d = document.createElement('div'); d.textContent = s||''; return d.innerHTML.replace(/\n/g,'<br>'); }
+    function escapeAttr(s) { return (s||'').replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+
+    /* ================================================================
+       TAB SWITCHING (no page reload)
+       ================================================================ */
+    document.querySelectorAll('.tab-link').forEach(link => {
+        link.addEventListener('click', (e) => {
+            e.preventDefault();
+            const tab = link.dataset.tab;
+            document.querySelectorAll('.tab-link').forEach(l => l.classList.remove('active'));
+            link.classList.add('active');
+            document.querySelectorAll('.tab-panel').forEach(p => p.classList.add('hidden'));
+            document.getElementById('tab-' + tab).classList.remove('hidden');
+        });
+    });
+
+    /* ================================================================
+       TRANSLATE
+       ================================================================ */
+    let glossaryCache = [];
+    let hintDebounce = null;
+
+    // Load full glossary for hint matching
+    async function loadGlossaryForHints() {
+        const resp = await fetch('/api/terms');
+        const data = await resp.json();
+        glossaryCache = data.terms;
+    }
+    loadGlossaryForHints();
+
+    // Check input against glossary as user types
+    document.getElementById('input-text').addEventListener('input', () => {
+        clearTimeout(hintDebounce);
+        hintDebounce = setTimeout(showGlossaryHints, 300);
+    });
+
+    function showGlossaryHints() {
+        const text = document.getElementById('input-text').value.toLowerCase();
+        if (!text.trim()) {
+            document.getElementById('glossary-hint').classList.add('hidden');
+            return;
+        }
+
+        const matched = glossaryCache.filter(t => text.includes(t.term_en.toLowerCase()));
+        if (!matched.length) {
+            document.getElementById('glossary-hint').classList.add('hidden');
+            return;
+        }
+
+        const tbody = document.getElementById('hint-body');
+        tbody.innerHTML = '';
+        for (const term of matched) {
+            const tr = document.createElement('tr');
+            tr.innerHTML = `
+                <td>${escapeHtml(term.term_en)}</td>
+                ${LANG_COLS.map(l => '<td>' + escapeHtml(term.translations[l] || '') + '</td>').join('')}
+            `;
+            tbody.appendChild(tr);
+        }
+        document.getElementById('glossary-hint').classList.remove('hidden');
+    }
+
+    // Translate form submit
+    document.getElementById('translate-form').addEventListener('submit', async (e) => {
+        e.preventDefault();
+
+        const text = document.getElementById('input-text').value.trim();
+        const checkboxes = document.querySelectorAll('input[name="languages"]:checked');
+        const languages = Array.from(checkboxes).map(cb => cb.value);
+        const modelChecks = document.querySelectorAll('input[name="models"]:checked');
+        const models = Array.from(modelChecks).map(cb => {
+            const [backend, model] = cb.value.split('::', 2);
+            return {backend, model};
+        });
+
+        if (!text) { alert('Enter text to translate.'); return; }
+        if (!languages.length) { alert('Select at least one language.'); return; }
+        if (!models.length) { alert('Select at least one model. Go to Settings to configure API keys.'); return; }
+
+        const btn = document.getElementById('translate-btn');
+        btn.disabled = true;
+        btn.textContent = 'Translating...';
+
+        try {
+            const resp = await fetch('/translate', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({text, languages, models})
+            });
+            const data = await resp.json();
+            if (data.error) { alert('Error: ' + data.error); return; }
+
+            renderResults(data.results);
+            document.getElementById('results').classList.remove('hidden');
+        } catch (err) {
+            alert('Request failed: ' + err.message);
+        } finally {
+            btn.disabled = false;
+            btn.textContent = 'Translate';
+        }
+    });
+
+    function renderResults(results) {
+        const container = document.getElementById('results-container');
+        container.innerHTML = '';
+
+        // Group results by model_used
+        const modelMap = {};
+        const modelOrder = [];
+        for (const row of results) {
+            const key = row.model_used || row.backend || 'unknown';
+            if (!modelMap[key]) {
+                modelMap[key] = {};
+                modelOrder.push(key);
+            }
+            modelMap[key][row.lang] = row;
+        }
+
+        // Get selected languages from checkboxes
+        const selectedLangs = Array.from(document.querySelectorAll('input[name="languages"]:checked')).map(cb => cb.value);
+
+        const table = document.createElement('table');
+        table.className = 'results-table';
+
+        // Header: Model | Spanish | French | German | Korean | Chinese | Japanese
+        const thead = document.createElement('thead');
+        const headerRow = document.createElement('tr');
+        headerRow.innerHTML = '<th>Model</th>' + selectedLangs.map(l => '<th>' + (LANG_NAMES[l] || l) + '</th>').join('');
+        thead.appendChild(headerRow);
+        table.appendChild(thead);
+
+        // One row per model, one cell per language
+        const tbody = document.createElement('tbody');
+        for (const modelKey of modelOrder) {
+            const tr = document.createElement('tr');
+            const shortName = modelKey.split('/').pop().replace(':free', '');
+            let rowHtml = '<td class="model-cell">' + escapeHtml(shortName) + '</td>';
+            for (const lang of selectedLangs) {
+                const row = modelMap[modelKey][lang];
+                if (row && row.translation) {
+                    rowHtml += '<td class="trans-cell">' + escapeHtml(row.translation) +
+                        ' <button class="copy-btn" data-text="' + escapeAttr(row.translation) + '">Copy</button></td>';
+                } else if (row && row.warnings && row.warnings.length) {
+                    rowHtml += '<td class="trans-cell"><span class="err-text">' + escapeHtml(row.warnings[0].substring(0, 80)) + '...</span></td>';
+                } else {
+                    rowHtml += '<td class="trans-cell">-</td>';
+                }
+            }
+            tr.innerHTML = rowHtml;
+            tbody.appendChild(tr);
+        }
+        table.appendChild(tbody);
+        container.appendChild(table);
+    }
+
+    document.getElementById('results-container').addEventListener('click', (e) => {
+        if (e.target.classList.contains('copy-btn')) {
+            navigator.clipboard.writeText(e.target.dataset.text).then(() => {
+                e.target.textContent = 'Copied!';
+                setTimeout(() => e.target.textContent = 'Copy', 1500);
+            });
+        }
+    });
+
+    /* ================================================================
+       GLOSSARY
+       ================================================================ */
+    let terms = [];
+    let sortCol = 'id';
+    let sortAsc = true;
+    let colFilters = {};
+
+    async function loadTerms() {
+        const search = document.getElementById('search').value;
+        const category = document.getElementById('category-filter').value;
+        let url = '/api/terms';
+        if (search) url += '?search=' + encodeURIComponent(search);
+        else if (category) url += '?category=' + encodeURIComponent(category);
+
+        const resp = await fetch(url);
+        terms = (await resp.json()).terms;
+        renderGlossaryTable();
+    }
+
+    function fuzzyMatch(text, query) {
+        if (!query) return true;
+        const q = query.toLowerCase().replace(/\s+/g, '');
+        const t = (text || '').toLowerCase().replace(/\s+/g, '');
+        if (t.includes(q)) return true;
+        // Simple fuzzy: each char in query must appear in order
+        let qi = 0;
+        for (let i = 0; i < t.length && qi < q.length; i++) {
+            if (t[i] === q[qi]) qi++;
+        }
+        return qi === q.length;
+    }
+
+    function getFilteredSortedTerms() {
+        let filtered = terms;
+
+        // Apply column filters
+        for (const [col, query] of Object.entries(colFilters)) {
+            if (!query) continue;
+            filtered = filtered.filter(term => {
+                if (col === 'term_en' || col === 'category' || col === 'id') {
+                    return fuzzyMatch(String(term[col]), query);
+                }
+                return fuzzyMatch(term.translations[col] || '', query);
+            });
+        }
+
+        // Sort
+        filtered.sort((a, b) => {
+            let va, vb;
+            if (sortCol === 'id') { va = a.id; vb = b.id; }
+            else if (sortCol === 'term_en' || sortCol === 'category') { va = (a[sortCol]||'').toLowerCase(); vb = (b[sortCol]||'').toLowerCase(); }
+            else { va = (a.translations[sortCol]||'').toLowerCase(); vb = (b.translations[sortCol]||'').toLowerCase(); }
+
+            if (va < vb) return sortAsc ? -1 : 1;
+            if (va > vb) return sortAsc ? 1 : -1;
+            return 0;
+        });
+
+        return filtered;
+    }
+
+    function updateSortArrows() {
+        document.querySelectorAll('#glossary-table .sortable').forEach(th => {
+            const arrow = th.querySelector('.sort-arrow');
+            if (th.dataset.col === sortCol) {
+                arrow.textContent = sortAsc ? ' ▲' : ' ▼';
+            } else {
+                arrow.textContent = '';
+            }
+        });
+    }
+
+    function renderGlossaryTable() {
+        const tbody = document.getElementById('terms-body');
+        tbody.innerHTML = '';
+        const rows = getFilteredSortedTerms();
+        for (const term of rows) {
+            const tr = document.createElement('tr');
+            tr.innerHTML = `
+                <td>${term.id}</td>
+                <td>${escapeHtml(term.term_en)}</td>
+                <td>${escapeHtml(term.category)}</td>
+                ${LANG_COLS.map(lang => `
+                    <td class="trans-cell">
+                        <span>${escapeHtml(term.translations[lang] || '')}</span>
+                        <button class="edit-btn" data-id="${term.id}" data-lang="${lang}" data-term="${escapeAttr(term.term_en)}" data-trans="${escapeAttr(term.translations[lang] || '')}">Edit</button>
+                    </td>
+                `).join('')}
+                <td><button class="verify-btn" data-id="${term.id}">Verify</button></td>
+            `;
+            tbody.appendChild(tr);
+        }
+        updateSortArrows();
+    }
+
+    // Sort on header click
+    document.querySelectorAll('#glossary-table .sortable').forEach(th => {
+        th.addEventListener('click', () => {
+            const col = th.dataset.col;
+            if (sortCol === col) { sortAsc = !sortAsc; }
+            else { sortCol = col; sortAsc = true; }
+            renderGlossaryTable();
+        });
+    });
+
+    // Column filter inputs
+    document.querySelectorAll('.col-filter').forEach(input => {
+        input.addEventListener('input', () => {
+            colFilters[input.dataset.col] = input.value;
+            renderGlossaryTable();
+        });
+        // Prevent sort trigger when clicking filter input
+        input.addEventListener('click', (e) => e.stopPropagation());
+    });
+
+    document.getElementById('search').addEventListener('input', loadTerms);
+    document.getElementById('category-filter').addEventListener('change', loadTerms);
+
+    document.getElementById('add-term-btn').addEventListener('click', () => document.getElementById('add-modal').classList.remove('hidden'));
+    document.getElementById('cancel-add').addEventListener('click', () => document.getElementById('add-modal').classList.add('hidden'));
+
+    document.getElementById('add-form').addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const term_en = document.getElementById('new-term').value.trim();
+        const category = document.getElementById('new-category').value;
+        const translations = {};
+        LANG_COLS.forEach(lang => {
+            const input = document.getElementById('trans-' + lang.replace('zh-CN','zh'));
+            if (input && input.value.trim()) translations[lang] = input.value.trim();
+        });
+        const resp = await fetch('/api/terms', {
+            method: 'POST', headers: {'Content-Type':'application/json'},
+            body: JSON.stringify({term_en, category, translations})
+        });
+        const data = await resp.json();
+        if (data.ok) { document.getElementById('add-modal').classList.add('hidden'); loadTerms(); loadGlossaryForHints(); }
+        else alert('Error: ' + data.error);
+    });
+
+    document.getElementById('terms-body').addEventListener('click', (e) => {
+        if (e.target.classList.contains('edit-btn')) {
+            document.getElementById('edit-term-id').value = e.target.dataset.id;
+            document.getElementById('edit-lang-code').value = e.target.dataset.lang;
+            document.getElementById('edit-term-name').textContent = e.target.dataset.term;
+            document.getElementById('edit-language').textContent = LANG_NAMES[e.target.dataset.lang];
+            document.getElementById('edit-translation').value = e.target.dataset.trans;
+            document.getElementById('edit-modal').classList.remove('hidden');
+        }
+        if (e.target.classList.contains('verify-btn')) {
+            fetch(`/api/terms/${e.target.dataset.id}/verify`, {method:'POST'});
+            e.target.textContent = 'Verified'; e.target.disabled = true;
+        }
+    });
+
+    document.getElementById('cancel-edit').addEventListener('click', () => document.getElementById('edit-modal').classList.add('hidden'));
+
+    document.getElementById('edit-form').addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const resp = await fetch(`/api/terms/${document.getElementById('edit-term-id').value}/translations`, {
+            method:'PUT', headers:{'Content-Type':'application/json'},
+            body: JSON.stringify({language: document.getElementById('edit-lang-code').value, translation: document.getElementById('edit-translation').value.trim()})
+        });
+        if ((await resp.json()).ok) { document.getElementById('edit-modal').classList.add('hidden'); loadTerms(); loadGlossaryForHints(); }
+    });
+
+    loadTerms();
+
+    /* ================================================================
+       SETTINGS
+       ================================================================ */
+    document.getElementById('settings-form').addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const providers = {};
+        const backends = [{% for name in backends %}'{{ name }}',{% endfor %}];
+        for (const name of backends) {
+            const keyInput = document.getElementById('key-' + name);
+            const urlInput = document.getElementById('url-' + name);
+            const modelInput = document.getElementById('model-' + name);
+
+            const p = {
+                api_key: keyInput ? keyInput.value.trim() : '',
+                base_url: urlInput ? urlInput.value.trim() : '',
+                model: modelInput ? modelInput.value.trim() : '',
+            };
+
+            // OpenRouter: collect multiple models
+            if (name === 'openrouter') {
+                const checked = document.querySelectorAll('.or-model-cb:checked');
+                p.models = Array.from(checked).map(cb => cb.value);
+                p.model = p.models[0] || '';
+            }
+
+            providers[name] = p;
+        }
+        const btn = document.getElementById('save-btn');
+        btn.disabled = true; btn.textContent = 'Saving...';
+        try {
+            const resp = await fetch('/api/settings', {
+                method:'POST', headers:{'Content-Type':'application/json'},
+                body: JSON.stringify({providers})
+            });
+            const data = await resp.json();
+            const result = document.getElementById('save-result');
+            result.classList.remove('hidden');
+            if (data.ok) {
+                const available = data.available_backends || [];
+                result.innerHTML = '<div class="success">Saved. Connected: ' +
+                    (available.length ? available.map(b => '<strong>' + b + '</strong>').join(', ') : '<em>None</em>') + '</div>';
+                for (const name of backends) {
+                    const card = document.getElementById('key-' + name).closest('.provider-card');
+                    const status = card.querySelector('.status');
+                    status.textContent = available.includes(name) ? 'Connected' : 'No API Key';
+                    status.className = 'status ' + (available.includes(name) ? 'connected' : 'disconnected');
+                }
+            } else {
+                result.innerHTML = '<div class="error">Error: ' + (data.error||'Unknown') + '</div>';
+            }
+        } catch (err) {
+            document.getElementById('save-result').classList.remove('hidden');
+            document.getElementById('save-result').innerHTML = '<div class="error">Failed: ' + err.message + '</div>';
+        } finally { btn.disabled = false; btn.textContent = 'Save Settings'; }
+    });
+    </script>
+</body>
+</html>

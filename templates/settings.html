@@ -1,0 +1,139 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>LLM Settings</title>
+    <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+    <nav>
+        <a href="/">Translate</a>
+        <a href="/glossary">Glossary</a>
+        <a href="/settings" class="active">Settings</a>
+    </nav>
+
+    <main>
+        <h1>LLM Provider Settings</h1>
+
+        <p class="hint">Configure API keys and models for translation backends. Keys are stored locally in <code>.tmp/llm_settings.json</code>.</p>
+
+        <form id="settings-form">
+            <input type="text" name="website" style="display:none" tabindex="-1" autocomplete="off">
+
+            {% for name in backends %}
+            <div class="provider-card">
+                <h2>{{ provider_labels[name] }} <span class="status {{ 'connected' if providers[name].has_key else 'disconnected' }}">{{ 'Connected' if providers[name].has_key else 'No API Key' }}</span></h2>
+
+                <div class="form-group">
+                    <label for="key-{{ name }}">API Key</label>
+                    <input type="password" id="key-{{ name }}" data-provider="{{ name }}" class="api-key-input"
+                           placeholder="Enter your {{ provider_labels[name] }} API key"
+                           value="{{ providers[name].api_key }}">
+                </div>
+
+                {% if name == 'openrouter' %}
+                <div class="form-group">
+                    <label for="url-{{ name }}">Base URL</label>
+                    <input type="text" id="url-{{ name }}" data-provider="{{ name }}" class="base-url-input"
+                           value="{{ providers[name].base_url or 'https://openrouter.ai/api/v1' }}">
+                </div>
+                <div class="form-group">
+                    <label for="model-{{ name }}">Model</label>
+                    <select id="model-{{ name }}" data-provider="{{ name }}" class="model-input">
+                        {% for m in openrouter_models %}
+                        <option value="{{ m }}" {{ 'selected' if providers[name].model == m or (not providers[name].model and m == 'nvidia/nemotron-3-super-120b-a12b:free') else '' }}>{{ m.split('/')[-1] }} (free)</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <p class="hint">OpenRouter provides free access to many models. <a href="https://openrouter.ai/keys" target="_blank">Get a free API key &rarr;</a></p>
+                {% elif name == 'openai' %}
+                <div class="form-group">
+                    <label for="model-{{ name }}">Model</label>
+                    <input type="text" id="model-{{ name }}" data-provider="{{ name }}" class="model-input"
+                           value="{{ providers[name].model or 'gpt-4o' }}"
+                           placeholder="gpt-4o">
+                </div>
+                {% elif name == 'anthropic' %}
+                <div class="form-group">
+                    <label for="model-{{ name }}">Model</label>
+                    <input type="text" id="model-{{ name }}" data-provider="{{ name }}" class="model-input"
+                           value="{{ providers[name].model or 'claude-sonnet-4-20250514' }}"
+                           placeholder="claude-sonnet-4-20250514">
+                </div>
+                {% endif %}
+            </div>
+            {% endfor %}
+
+            <button type="submit" id="save-btn">Save Settings</button>
+        </form>
+
+        <div id="save-result" class="hidden"></div>
+    </main>
+
+    <script>
+    document.getElementById('settings-form').addEventListener('submit', async (e) => {
+        e.preventDefault();
+
+        const providers = {};
+        const backends = [{% for name in backends %}'{{ name }}',{% endfor %}];
+
+        for (const name of backends) {
+            const keyInput = document.getElementById('key-' + name);
+            const urlInput = document.getElementById('url-' + name);
+            const modelInput = document.getElementById('model-' + name);
+
+            providers[name] = {
+                api_key: keyInput ? keyInput.value.trim() : '',
+                base_url: urlInput ? urlInput.value.trim() : '',
+                model: modelInput ? modelInput.value.trim() : '',
+            };
+        }
+
+        const btn = document.getElementById('save-btn');
+        btn.disabled = true;
+        btn.textContent = 'Saving...';
+
+        try {
+            const resp = await fetch('/api/settings', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({providers})
+            });
+
+            const data = await resp.json();
+            const result = document.getElementById('save-result');
+            result.classList.remove('hidden');
+
+            if (data.ok) {
+                const available = data.available_backends || [];
+                result.innerHTML = '<div class="success">Settings saved. Available backends: ' +
+                    (available.length ? available.map(b => '<strong>' + b + '</strong>').join(', ') : '<em>None — add at least one API key</em>') +
+                    '</div>';
+
+                // Update status badges
+                for (const name of backends) {
+                    const card = document.getElementById('key-' + name).closest('.provider-card');
+                    const status = card.querySelector('.status');
+                    if (available.includes(name)) {
+                        status.textContent = 'Connected';
+                        status.className = 'status connected';
+                    } else {
+                        status.textContent = 'No API Key';
+                        status.className = 'status disconnected';
+                    }
+                }
+            } else {
+                result.innerHTML = '<div class="error">Error: ' + (data.error || 'Unknown error') + '</div>';
+            }
+        } catch (err) {
+            document.getElementById('save-result').classList.remove('hidden');
+            document.getElementById('save-result').innerHTML = '<div class="error">Failed: ' + err.message + '</div>';
+        } finally {
+            btn.disabled = false;
+            btn.textContent = 'Save Settings';
+        }
+    });
+    </script>
+</body>
+</html>
