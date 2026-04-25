@@ -56,8 +56,8 @@
                     <div class="model-label-row">
                         <label>Models (select multiple)</label>
                         <div class="toggle-btns">
-                            <button type="button" id="select-all-models">Select All</button>
-                            <button type="button" id="deselect-all-models">Deselect All</button>
+                            <button type="button" class="secondary small" id="select-all-models">Select All</button>
+                            <button type="button" class="secondary small" id="deselect-all-models">Clear</button>
                         </div>
                     </div>
                     <div class="model-multiselect" id="model-multiselect">
@@ -125,7 +125,7 @@
                         </div>
                         <div class="modal-actions">
                             <button type="submit">Add</button>
-                            <button type="button" id="cancel-glossary-add">Cancel</button>
+                            <button type="button" class="secondary" id="cancel-glossary-add">Cancel</button>
                         </div>
                     </form>
                 </div>
@@ -216,7 +216,7 @@
                         </div>
                         <div class="modal-actions">
                             <button type="submit">Add</button>
-                            <button type="button" id="cancel-add">Cancel</button>
+                            <button type="button" class="secondary" id="cancel-add">Cancel</button>
                         </div>
                     </form>
                 </div>
@@ -236,7 +236,7 @@
                         <input type="hidden" id="edit-lang-code">
                         <div class="modal-actions">
                             <button type="submit">Save</button>
-                            <button type="button" id="cancel-edit">Cancel</button>
+                            <button type="button" class="secondary" id="cancel-edit">Cancel</button>
                         </div>
                     </form>
                 </div>
@@ -301,6 +301,14 @@
                         </select>
                     </div>
                     <p class="hint">Free tier available. <a href="https://aistudio.google.com/app/apikeys" target="_blank">Get API key &rarr;</a></p>
+                    {% elif name == 'libretranslate' %}
+                    <div class="form-group">
+                        <label for="url-{{ name }}">Base URL</label>
+                        <input type="text" id="url-{{ name }}" data-provider="{{ name }}" class="base-url-input"
+                               value="{{ providers[name].base_url or 'http://localhost:5001' }}"
+                               placeholder="http://localhost:5001">
+                    </div>
+                    <p class="hint">Self-hosted. <code>docker compose up -d</code> to start.</p>
                     {% endif %}
                 </div>
                 {% endfor %}
@@ -473,13 +481,28 @@
                 headers: {'Content-Type': 'application/json'},
                 body: JSON.stringify({text, languages, models})
             });
+            if (!resp.ok) {
+                let msg = 'Server error (' + resp.status + ')';
+                try { const d = await resp.json(); msg = d.error || msg; } catch(e) {}
+                document.getElementById('results').classList.remove('hidden');
+                document.getElementById('results-container').innerHTML =
+                    '<div class="error">' + escapeHtml(msg) + '</div>';
+                return;
+            }
             const data = await resp.json();
-            if (data.error) { alert('Error: ' + data.error); return; }
+            if (data.error) {
+                document.getElementById('results').classList.remove('hidden');
+                document.getElementById('results-container').innerHTML =
+                    '<div class="error">' + escapeHtml(data.error) + '</div>';
+                return;
+            }
 
             renderResults(data.results);
             document.getElementById('results').classList.remove('hidden');
         } catch (err) {
-            alert('Request failed: ' + err.message);
+            document.getElementById('results').classList.remove('hidden');
+            document.getElementById('results-container').innerHTML =
+                '<div class="error">Request failed: ' + escapeHtml(err.message) + '</div>';
         } finally {
             btn.disabled = false;
             btn.textContent = 'Translate';
@@ -851,7 +874,7 @@
                 ${LANG_COLS.map(lang => `
                     <td class="trans-cell">
                         <span>${escapeHtml(term.translations[lang] || '')}</span>
-                        <button class="edit-btn" data-id="${term.id}" data-lang="${lang}" data-term="${escapeAttr(term.term_en)}" data-trans="${escapeAttr(term.translations[lang] || '')}">Edit</button>
+                        <button class="edit-btn" data-id="${term.id}" data-lang="${lang}" data-term="${escapeAttr(term.term_en)}" data-trans="${escapeAttr(term.translations[lang] || '')}" title="Edit"><svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 3a2.85 2.85 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"/></svg></button>
                     </td>
                 `).join('')}
                 <td>${escapeHtml(term.notes || '')}</td>
@@ -911,19 +934,22 @@
     });
 
     document.getElementById('terms-body').addEventListener('click', async (e) => {
-        if (e.target.classList.contains('edit-btn')) {
-            document.getElementById('edit-term-id').value = e.target.dataset.id;
-            document.getElementById('edit-lang-code').value = e.target.dataset.lang;
-            document.getElementById('edit-term-name').textContent = e.target.dataset.term;
-            document.getElementById('edit-language').textContent = LANG_NAMES[e.target.dataset.lang];
-            document.getElementById('edit-translation').value = e.target.dataset.trans;
+        const editBtn = e.target.closest('.edit-btn');
+        const verifyBtn = e.target.closest('.verify-btn');
+        const deleteBtn = e.target.closest('.delete-btn');
+        if (editBtn) {
+            document.getElementById('edit-term-id').value = editBtn.dataset.id;
+            document.getElementById('edit-lang-code').value = editBtn.dataset.lang;
+            document.getElementById('edit-term-name').textContent = editBtn.dataset.term;
+            document.getElementById('edit-language').textContent = LANG_NAMES[editBtn.dataset.lang];
+            document.getElementById('edit-translation').value = editBtn.dataset.trans;
             document.getElementById('edit-modal').classList.remove('hidden');
         }
-        if (e.target.classList.contains('verify-btn')) {
-            fetch(`/api/terms/${e.target.dataset.id}/verify`, {method:'POST'});
-            e.target.textContent = 'Verified'; e.target.disabled = true;
+        if (verifyBtn) {
+            fetch(`/api/terms/${verifyBtn.dataset.id}/verify`, {method:'POST'});
+            verifyBtn.textContent = 'Verified'; verifyBtn.disabled = true;
         }
-        if (e.target.classList.contains('delete-btn')) {
+        if (deleteBtn) {
             const termName = e.target.dataset.term;
             if (!confirm('Delete "' + termName + '"?')) return;
             const resp = fetch(`/api/terms/${e.target.dataset.id}`, {method:'DELETE'});

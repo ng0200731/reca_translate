@@ -67,6 +67,7 @@ def get_api_key(provider: str) -> str:
         "anthropic": "ANTHROPIC_API_KEY",
         "deepl": "DEEPL_API_KEY",
         "openrouter": "OPENROUTER_API_KEY",
+        "libretranslate": "LIBRETRANSLATE_API_KEY",
     }
     return os.environ.get(env_map.get(provider, ""), "")
 
@@ -81,6 +82,7 @@ def get_base_url(provider: str) -> str:
         "openrouter": "https://openrouter.ai/api/v1",
         "openai": "https://api.openai.com/v1",
         "gemini": "https://generativelanguage.googleapis.com/v1beta/openai/",
+        "libretranslate": "http://localhost:5001",
     }
     return defaults.get(provider, "")
 
@@ -97,6 +99,7 @@ def get_model(provider: str) -> str:
         "openrouter": "nvidia/nemotron-3-super-120b-a12b:free",
         "gemini": "gemini-2.0-flash",
         "deepl": "",
+        "libretranslate": "",
     }
     return defaults.get(provider, "")
 
@@ -268,12 +271,51 @@ class GeminiBackend(LLMBackend):
         return response.choices[0].message.content.strip(), model
 
 
+class LibreTranslateBackend(LLMBackend):
+    """LibreTranslate: self-hosted open-source MT API."""
+
+    LANG_CODE_MAP = {
+        "es": "es", "fr": "fr", "de": "de",
+        "ja": "ja", "ko": "ko", "zh-CN": "zh",
+    }
+
+    def name(self):
+        return "libretranslate"
+
+    def translate(self, text: str, target_language: str, glossary: str) -> tuple[str, str]:
+        import requests
+
+        base_url = get_base_url("libretranslate") or "http://localhost:5001"
+        api_key = get_api_key("libretranslate")
+
+        lt_target = self.LANG_CODE_MAP.get(target_language, target_language)
+
+        payload = {
+            "q": text,
+            "source": "en",
+            "target": lt_target,
+            "format": "text",
+        }
+        if api_key:
+            payload["api_key"] = api_key
+
+        resp = requests.post(
+            f"{base_url.rstrip('/')}/translate",
+            json=payload,
+            timeout=60,
+        )
+        resp.raise_for_status()
+        translated = resp.json()["translatedText"]
+        return translated.strip(), "libretranslate"
+
+
 BACKENDS = {
     "openai": OpenAIBackend,
     "anthropic": AnthropicBackend,
     "deepl": DeepLBackend,
     "openrouter": OpenRouterBackend,
     "gemini": GeminiBackend,
+    "libretranslate": LibreTranslateBackend,
 }
 
 # Free models available on OpenRouter (verified April 2026)
@@ -309,10 +351,14 @@ def get_backend(name: str) -> LLMBackend:
 
 
 def list_backends():
-    """List available backends based on configured API keys."""
+    """List available backends based on configured API keys or base URLs."""
+    KEYLESS_PROVIDERS = {"libretranslate"}
     available = []
     for provider in BACKENDS:
-        if get_api_key(provider):
+        if provider in KEYLESS_PROVIDERS:
+            if get_base_url(provider):
+                available.append(provider)
+        elif get_api_key(provider):
             available.append(provider)
     return available
 
@@ -324,11 +370,14 @@ def get_provider_info():
     info = {}
     for name in BACKENDS:
         p = providers.get(name, {})
+        has_key = bool(p.get("api_key") or get_api_key(name))
+        if not has_key and name == "libretranslate":
+            has_key = bool(p.get("base_url") or get_base_url(name))
         info[name] = {
             "api_key": p.get("api_key", "") or get_api_key(name),
             "base_url": p.get("base_url", "") or get_base_url(name),
             "model": p.get("model", "") or get_model(name),
             "models": p.get("models", []),
-            "has_key": bool(p.get("api_key") or get_api_key(name)),
+            "has_key": has_key,
         }
     return info

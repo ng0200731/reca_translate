@@ -1,0 +1,13 @@
+services:
+  libretranslate:
+    image: libretranslate/libretranslate:latest
+    ports:
+      - "5001:5000"
+    environment:
+      - LT_LOAD_ONLY=en,es,fr,de,ja,zh,ko
+    volumes:
+      - libretranslate_models:/home/libuser/.local/share/argos-translate/packages
+    restart: unless-stopped
+
+volumes:
+  libretranslate_models:

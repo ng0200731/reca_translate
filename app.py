@@ -28,6 +28,7 @@ PROVIDER_LABELS = {
     "deepl": "DeepL",
     "openrouter": "OpenRouter (Free Models)",
     "gemini": "Google Gemini",
+    "libretranslate": "LibreTranslate (Self-Hosted)",
 }
 
 app = Flask(__name__)
@@ -56,6 +57,8 @@ def index():
     if "anthropic" in backends:
         model = providers.get("anthropic", {}).get("model", "claude-sonnet-4-20250514")
         all_models.append({"backend": "anthropic", "model": model, "short_name": model})
+    if "libretranslate" in backends:
+        all_models.append({"backend": "libretranslate", "model": "libretranslate", "short_name": "LibreTranslate"})
 
     return render_template(
         "index.html",
@@ -103,11 +106,23 @@ def translate():
 
     from tools.translator import translate_with_model
     rows = []
-    # Run all models in parallel with 3-minute overall timeout
     with ThreadPoolExecutor(max_workers=len(models)) as pool:
         futs = {pool.submit(translate_with_model, text, languages, m["backend"], m.get("model", "")): i for i, m in enumerate(models)}
-        for fut in as_completed(futs, timeout=180):
-            rows.extend(fut.result())
+        try:
+            for fut in as_completed(futs, timeout=180):
+                try:
+                    rows.extend(fut.result())
+                except Exception as e:
+                    rows.append({"lang": "", "backend": "", "translation": "", "model_used": "", "warnings": [f"Backend error: {e}"]})
+        except TimeoutError:
+            for fut in futs:
+                if fut.done() and not fut.cancelled():
+                    try:
+                        rows.extend(fut.result())
+                    except Exception:
+                        pass
+            if not rows:
+                return jsonify({"error": "Translation timed out. Try fewer models or languages."}), 504
     return jsonify({"results": rows})
 
 

@@ -62,6 +62,15 @@
                            placeholder="claude-sonnet-4-20250514">
                 </div>
                 {% endif %}
+                {% if name == 'libretranslate' %}
+                <div class="form-group">
+                    <label for="url-{{ name }}">Base URL</label>
+                    <input type="text" id="url-{{ name }}" data-provider="{{ name }}" class="base-url-input"
+                           value="{{ providers[name].base_url or 'http://localhost:5001' }}"
+                           placeholder="http://localhost:5001">
+                </div>
+                <p class="hint">Self-hosted translation API. <code>docker compose up -d</code> to start. No API key required.</p>
+                {% endif %}
             </div>
             {% endfor %}
 
