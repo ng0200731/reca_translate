@@ -11,7 +11,7 @@ body {
 }
 
 /* --- NAV --- */
-nav { background: #000; padding: 12px 20px; }
+nav { background: #000; padding: 12px 20px; position: sticky; top: 0; z-index: 100; }
 nav a { color: #fff; text-decoration: none; margin-right: 20px; padding: 4px 8px; cursor: pointer; }
 nav a:hover { background: #333; }
 nav a.active { border-bottom: 2px solid #fff; }
@@ -23,6 +23,13 @@ main { max-width: 1400px; margin: 20px auto; padding: 20px; }
 
 h1 { font-size: 24px; margin-bottom: 20px; border-bottom: 1px solid #000; }
 h2 { font-size: 18px; margin: 20px 0 10px; }
+#results-source { font-size: 14px; font-weight: 400; color: #666; font-family: monospace; }
+
+.results-legend { display: inline-flex; gap: 16px; margin-bottom: 8px; font-size: 13px; color: #444; }
+.legend-item { display: inline-flex; align-items: center; gap: 4px; }
+.legend-box { display: inline-block; width: 14px; height: 14px; border: 1px solid #000; }
+.legend-green { background: #d4edda; }
+.legend-red { background: #f8d7da; }
 
 /* --- FORMS --- */
 .form-group { margin-bottom: 15px; }
@@ -50,20 +57,139 @@ button {
 button:hover { background: #333; }
 button:disabled { background: #666; cursor: not-allowed; }
 
+.toggle-btns { display: inline-flex; gap: 8px; }
+.toggle-btns button { padding: 6px 12px; font-size: 12px; }
+
+/* --- MODEL LABEL ROW --- */
+.model-label-row {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-bottom: 5px;
+}
+.model-label-row label { margin-bottom: 0; }
+
+/* --- MULTI-SELECT DROPDOWN --- */
+.model-multiselect { position: relative; }
+.multiselect-display {
+    min-height: 40px;
+    padding: 6px 30px 6px 8px;
+    border: 1px solid #000;
+    background: #fff;
+    cursor: pointer;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px;
+    align-items: center;
+    position: relative;
+}
+.multiselect-display::after {
+    content: '▾';
+    position: absolute;
+    right: 10px;
+    top: 50%;
+    transform: translateY(-50%);
+    font-size: 14px;
+    pointer-events: none;
+}
+.multiselect-placeholder {
+    color: #999;
+    font-size: 14px;
+    font-family: "Consolas", "Monaco", "Courier New", monospace;
+}
+.multiselect-tag {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 2px 8px;
+    font-size: 12px;
+    font-family: "Consolas", "Monaco", "Courier New", monospace;
+    background: #f0f0f0;
+    border: 1px solid #000;
+    cursor: pointer;
+}
+.multiselect-tag:hover {
+    background: #f8d7da;
+    border-color: #c00;
+}
+.multiselect-tag::after {
+    content: '×';
+    margin-left: 2px;
+    font-weight: 700;
+}
+.multiselect-dropdown {
+    position: absolute;
+    top: 100%;
+    left: 0;
+    right: 0;
+    background: #fff;
+    border: 1px solid #000;
+    border-top: none;
+    max-height: 250px;
+    overflow-y: auto;
+    z-index: 50;
+}
+.multiselect-option {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 10px;
+    cursor: pointer;
+    font-size: 13px;
+    font-family: "Consolas", "Monaco", "Courier New", monospace;
+}
+.multiselect-option:hover { background: #f0f0f0; }
+.multiselect-option input { margin: 0; }
+.multiselect-empty {
+    padding: 10px;
+    font-size: 13px;
+    color: #999;
+    font-style: italic;
+}
+
+/* --- INPUT + GLOSSARY 2-COLUMN --- */
+.input-glossary-row {
+    display: flex;
+    gap: 20px;
+    margin-bottom: 15px;
+}
+.input-col {
+    flex: 1;
+    min-width: 0;
+}
+.input-col .form-group {
+    margin-bottom: 0;
+}
+.glossary-col {
+    flex: 1;
+    min-width: 0;
+}
+.glossary-col-header {
+    font-weight: 600;
+    font-size: 13px;
+    margin-bottom: 8px;
+}
+
 /* --- GLOSSARY HINT (translate input) --- */
 #glossary-hint {
-    margin-bottom: 15px;
     border: 1px solid #000;
     background: #f9f9f9;
     padding: 10px;
 }
-.hint-header { font-weight: 600; margin-bottom: 8px; font-size: 13px; }
 .hint-table { width: 100%; border-collapse: collapse; font-size: 12px; }
 .hint-table th { padding: 4px 6px; border: 1px solid #999; background: #000; color: #fff; font-weight: 600; }
 .hint-table td { padding: 4px 6px; border: 1px solid #999; }
 
 /* --- RESULTS TABLE --- */
 #results { margin-top: 30px; border-top: 1px solid #000; padding-top: 20px; }
+
+.case-toolbar { display: inline-flex; gap: 8px; margin-bottom: 10px; }
+.case-btn { padding: 6px 12px; font-size: 12px; background: #fff; color: #000; border: 1px solid #000; }
+.case-btn:hover { background: #f0f0f0; }
+
+.col-match { background: #d4edda !important; }
+.col-differ { background: #f8d7da !important; }
+.col-neutral { background: #f9f9f9 !important; }
 
 .model-tag {
     display: inline-block; font-size: 12px; padding: 2px 8px;
@@ -72,7 +198,7 @@ button:disabled { background: #666; cursor: not-allowed; }
 }
 
 .results-table { width: 100%; border-collapse: collapse; margin-top: 10px; }
-.results-table th { padding: 8px; border: 1px solid #000; background: #000; color: #fff; text-align: left; }
+.results-table th { padding: 8px; border: 1px solid #000; background: #fff; color: #000; text-align: left; }
 .results-table td { padding: 8px; border: 1px solid #000; vertical-align: top; }
 .results-table .lang-cell { font-weight: 600; vertical-align: top; }
 .results-table .trans-cell {
@@ -95,6 +221,43 @@ button:disabled { background: #666; cursor: not-allowed; }
     background: #fff; color: #000; border: 1px solid #000;
 }
 .copy-btn:hover { background: #f0f0f0; }
+
+.check-btn {
+    padding: 2px 6px; font-size: 11px;
+    background: #fff; color: #000; border: 1px solid #000;
+    vertical-align: middle;
+}
+.check-btn:hover { background: #f0f0f0; }
+
+/* --- SELECT / ADD TO GLOSSARY --- */
+.select-btn {
+    display: inline-flex; align-items: center; justify-content: center;
+    width: 22px; height: 22px; padding: 0;
+    font-size: 13px; line-height: 1;
+    background: #fff; color: transparent;
+    border: 2px solid #999; border-radius: 50%;
+    cursor: pointer; margin-left: 8px; vertical-align: middle;
+    transition: all 0.15s ease;
+}
+.select-btn:hover { border-color: #c00; background: #fff5f5; }
+.select-btn.selected {
+    background: #c00; border-color: #c00; color: #fff;
+}
+.trans-cell.cell-selected {
+    border: 2px solid #c00 !important;
+    background: #fff5f5 !important;
+    box-shadow: inset 0 0 0 1px rgba(200,0,0,0.1);
+}
+
+.add-glossary-bar {
+    margin-top: 15px; padding: 12px 16px;
+    border: 2px solid #c00; background: #fff5f5;
+    display: flex; align-items: center; gap: 15px;
+}
+.add-glossary-bar span { font-size: 14px; }
+.glossary-progress {
+    font-size: 12px; color: #888; margin-top: 6px;
+}
 
 /* --- GLOSSARY TABLE --- */
 .controls { display: flex; gap: 15px; align-items: flex-end; margin-bottom: 20px; }
@@ -123,7 +286,13 @@ td.trans-cell span { display: inline; }
     padding: 2px 6px; font-size: 11px;
     background: #fff; color: #000; border: 1px solid #000; margin-left: 5px;
 }
-.edit-btn:hover, .verify-btn:hover { background: #f0f0f0; }
+.edit-btn:hover, .verify-btn:hover, .delete-btn:hover { background: #f0f0f0; }
+
+.delete-btn {
+    padding: 2px 6px; font-size: 11px;
+    background: #fff; color: #c00; border: 1px solid #c00; margin-left: 5px;
+}
+.delete-btn:hover { background: #fff5f5; }
 
 /* --- MODALS --- */
 .modal {

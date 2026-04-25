@@ -21,17 +21,22 @@
             <form id="translate-form">
                 <input type="text" name="website" style="display:none" tabindex="-1" autocomplete="off">
 
-                <div class="form-group">
-                    <label for="input-text">English Input</label>
-                    <textarea id="input-text" name="text" rows="5" placeholder="Enter fabric content and care instructions in English...&#10;&#10;Example:&#10;100% Cotton&#10;Machine wash cold. Tumble dry low. Do not bleach."></textarea>
-                </div>
-
-                <div id="glossary-hint" class="hidden">
-                    <div class="hint-header">Glossary matches found:</div>
-                    <table class="hint-table">
-                        <thead><tr><th>Term</th><th>Spanish</th><th>French</th><th>German</th><th>Korean</th><th>Chinese</th><th>Japanese</th></tr></thead>
-                        <tbody id="hint-body"></tbody>
-                    </table>
+                <div class="input-glossary-row">
+                    <div class="input-col">
+                        <div class="form-group">
+                            <label for="input-text">English Input</label>
+                            <textarea id="input-text" name="text" rows="5" placeholder="Enter fabric content and care instructions in English...&#10;&#10;Example:&#10;100% Cotton&#10;Machine wash cold. Tumble dry low. Do not bleach."></textarea>
+                        </div>
+                    </div>
+                    <div class="glossary-col">
+                        <div class="glossary-col-header">Glossary matches found:</div>
+                        <div id="glossary-hint" class="hidden">
+                            <table class="hint-table">
+                                <thead><tr><th>Term</th><th>Spanish</th><th>French</th><th>German</th><th>Korean</th><th>Chinese</th><th>Japanese</th></tr></thead>
+                                <tbody id="hint-body"></tbody>
+                            </table>
+                        </div>
+                    </div>
                 </div>
 
                 <div class="form-group">
@@ -47,17 +52,28 @@
                 </div>
 
                 <div class="form-group">
-                    <label>Models (select multiple)</label>
-                    <div class="checkbox-group">
-                        {% for m in all_models %}
-                        <label class="check-label">
-                            <input type="checkbox" name="models" value="{{ m.backend }}::{{ m.model }}" checked>
-                            {{ m.short_name }}
-                        </label>
-                        {% endfor %}
-                        {% if not all_models %}
-                        <em>No API keys configured — go to Settings</em>
-                        {% endif %}
+                    <div class="model-label-row">
+                        <label>Models (select multiple)</label>
+                        <div class="toggle-btns">
+                            <button type="button" id="select-all-models">Select All</button>
+                            <button type="button" id="deselect-all-models">Deselect All</button>
+                        </div>
+                    </div>
+                    <div class="model-multiselect" id="model-multiselect">
+                        <div class="multiselect-display" id="multiselect-display">
+                            <span class="multiselect-placeholder">Select models...</span>
+                        </div>
+                        <div class="multiselect-dropdown" id="multiselect-dropdown">
+                            {% for m in all_models %}
+                            <label class="multiselect-option">
+                                <input type="checkbox" name="models" value="{{ m.backend }}::{{ m.model }}">
+                                <span>{{ m.short_name }}</span>
+                            </label>
+                            {% endfor %}
+                            {% if not all_models %}
+                            <div class="multiselect-empty">No API keys configured — go to Settings</div>
+                            {% endif %}
+                        </div>
                     </div>
                 </div>
 
@@ -65,13 +81,57 @@
             </form>
 
             <div id="results" class="hidden">
-                <h2>Translation Results</h2>
+                <h2>Translation Results <span id="results-source"></span></h2>
+                <div class="results-legend">
+                    <span class="legend-item"><span class="legend-box legend-green"></span> Consistent</span>
+                    <span class="legend-item"><span class="legend-box legend-red"></span> Non-consistent</span>
+                </div>
+                <div id="case-toolbar" class="case-toolbar">
+                    <button type="button" class="case-btn" data-case="upper">ALL CAPITAL</button>
+                    <button type="button" class="case-btn" data-case="proper">All Proper</button>
+                    <button type="button" class="case-btn" data-case="lower">all lowercase</button>
+                </div>
                 <div id="results-container"></div>
+                <div id="add-glossary-bar" class="add-glossary-bar hidden">
+                    <span id="glossary-count"></span>
+                    <button type="button" id="add-glossary-btn">Add to Glossary</button>
+                </div>
+            </div>
+
+            <div id="add-glossary-modal" class="modal hidden">
+                <div class="modal-content">
+                    <h2>Add to Glossary</h2>
+                    <form id="add-glossary-form">
+                        <div class="form-group">
+                            <label for="gloss-term">English Term</label>
+                            <input type="text" id="gloss-term" name="term_en" required>
+                        </div>
+                        <div class="form-group">
+                            <label for="gloss-category">Category</label>
+                            <select id="gloss-category" name="category" required>
+                                {% for cat in categories %}
+                                <option value="{{ cat }}">{{ cat }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label>Selected Translations</label>
+                            <div id="gloss-preview"></div>
+                        </div>
+                        <div class="form-group">
+                            <label for="gloss-notes">Notes</label>
+                            <input type="text" id="gloss-notes" placeholder="Optional notes...">
+                        </div>
+                        <div class="modal-actions">
+                            <button type="submit">Add</button>
+                            <button type="button" id="cancel-glossary-add">Cancel</button>
+                        </div>
+                    </form>
+                </div>
             </div>
         </div>
 
-        <!-- ==================== GLOSSARY TAB ==================== -->
-        <div id="tab-glossary" class="tab-panel hidden">
+        <!-- ==================== GLOSSARY TAB ==================== -->        <div id="tab-glossary" class="tab-panel hidden">
             <h1>Glossary Management</h1>
 
             <div class="controls">
@@ -103,6 +163,7 @@
                         <th class="sortable" data-col="ko">Korean <span class="sort-arrow"></span></th>
                         <th class="sortable" data-col="zh-CN">Chinese <span class="sort-arrow"></span></th>
                         <th class="sortable" data-col="ja">Japanese <span class="sort-arrow"></span></th>
+                        <th class="sortable" data-col="notes">Notes <span class="sort-arrow"></span></th>
                         <th>Actions</th>
                     </tr>
                     <tr class="filter-row">
@@ -115,6 +176,7 @@
                         <th><input type="text" class="col-filter" data-col="ko" placeholder="Filter..."></th>
                         <th><input type="text" class="col-filter" data-col="zh-CN" placeholder="Filter..."></th>
                         <th><input type="text" class="col-filter" data-col="ja" placeholder="Filter..."></th>
+                        <th><input type="text" class="col-filter" data-col="notes" placeholder="Filter..."></th>
                         <th></th>
                     </tr>
                 </thead>
@@ -146,6 +208,10 @@
                             <input type="text" id="trans-ko" placeholder="Korean">
                             <input type="text" id="trans-zh" placeholder="Chinese">
                             <input type="text" id="trans-ja" placeholder="Japanese">
+                        </div>
+                        <div class="form-group">
+                            <label for="new-notes">Notes</label>
+                            <input type="text" id="new-notes" placeholder="Optional notes...">
                         </div>
                         <div class="modal-actions">
                             <button type="submit">Add</button>
@@ -315,14 +381,73 @@
         document.getElementById('glossary-hint').classList.remove('hidden');
     }
 
+    /* ================================================================
+       MULTI-SELECT DROPDOWN
+       ================================================================ */
+    const msDisplay = document.getElementById('multiselect-display');
+    const msDropdown = document.getElementById('multiselect-dropdown');
+    msDropdown.style.display = 'none';
+
+    function updateMultiselectDisplay() {
+        const checked = msDropdown.querySelectorAll('input[name="models"]:checked');
+        msDisplay.innerHTML = '';
+        if (checked.length === 0) {
+            msDisplay.innerHTML = '<span class="multiselect-placeholder">Select models...</span>';
+        } else {
+            checked.forEach(cb => {
+                const label = cb.closest('.multiselect-option').querySelector('span').textContent;
+                const tag = document.createElement('span');
+                tag.className = 'multiselect-tag';
+                tag.textContent = label;
+                tag.dataset.value = cb.value;
+                tag.addEventListener('click', (e) => {
+                    e.stopPropagation();
+                    cb.checked = false;
+                    updateMultiselectDisplay();
+                });
+                msDisplay.appendChild(tag);
+            });
+        }
+    }
+
+    msDisplay.addEventListener('click', (e) => {
+        const isOpen = msDropdown.style.display !== 'none';
+        msDropdown.style.display = isOpen ? 'none' : 'block';
+    });
+
+    document.addEventListener('click', (e) => {
+        if (!document.getElementById('model-multiselect').contains(e.target)) {
+            msDropdown.style.display = 'none';
+        }
+    });
+
+    msDropdown.addEventListener('change', () => {
+        updateMultiselectDisplay();
+    });
+
+    // Select All / Deselect All for models
+    document.getElementById('select-all-models')?.addEventListener('click', () => {
+        msDropdown.querySelectorAll('input[name="models"]').forEach(cb => cb.checked = true);
+        updateMultiselectDisplay();
+    });
+    document.getElementById('deselect-all-models')?.addEventListener('click', () => {
+        msDropdown.querySelectorAll('input[name="models"]').forEach(cb => cb.checked = false);
+        updateMultiselectDisplay();
+    });
+
     // Translate form submit
     document.getElementById('translate-form').addEventListener('submit', async (e) => {
         e.preventDefault();
 
+        // Reset results area
+        document.getElementById('results-container').innerHTML = '';
+        document.getElementById('results-source').textContent = '';
+        document.getElementById('results').classList.add('hidden');
+
         const text = document.getElementById('input-text').value.trim();
         const checkboxes = document.querySelectorAll('input[name="languages"]:checked');
         const languages = Array.from(checkboxes).map(cb => cb.value);
-        const modelChecks = document.querySelectorAll('input[name="models"]:checked');
+        const modelChecks = msDropdown.querySelectorAll('input[name="models"]:checked');
         const models = Array.from(modelChecks).map(cb => {
             const [backend, model] = cb.value.split('::', 2);
             return {backend, model};
@@ -355,9 +480,33 @@
         }
     });
 
+    // Raw translation data for case transforms
+    let lastResults = null;
+    let glossarySelections = {};
+
+    function checkGlossaryReady() {
+        const selectedLangs = Array.from(document.querySelectorAll('input[name="languages"]:checked')).map(cb => cb.value);
+        const selectedCount = selectedLangs.filter(l => glossarySelections[l]).length;
+        const allSelected = selectedLangs.length > 0 && selectedCount === selectedLangs.length;
+        const bar = document.getElementById('add-glossary-bar');
+        if (bar) {
+            const countEl = document.getElementById('glossary-count');
+            if (countEl) countEl.textContent = selectedCount + '/' + selectedLangs.length + ' selected';
+            bar.classList.toggle('hidden', !allSelected);
+        }
+    }
+
     function renderResults(results) {
+        lastResults = results;
+        glossarySelections = {};
+        const bar = document.getElementById('add-glossary-bar');
+        if (bar) bar.classList.add('hidden');
         const container = document.getElementById('results-container');
         container.innerHTML = '';
+
+        // Show source text in heading
+        const sourceText = document.getElementById('input-text').value.trim();
+        document.getElementById('results-source').textContent = sourceText ? '{' + sourceText + '}' : '';
 
         // Group results by model_used
         const modelMap = {};
@@ -374,18 +523,46 @@
         // Get selected languages from checkboxes
         const selectedLangs = Array.from(document.querySelectorAll('input[name="languages"]:checked')).map(cb => cb.value);
 
+        // Determine per-column consistency (case-insensitive)
+        const colClass = {};
+        for (const lang of selectedLangs) {
+            const translations = modelOrder.map(k => (modelMap[k][lang] || {}).translation || '');
+            const nonEmpty = translations.filter(t => t);
+            if (nonEmpty.length === 0) {
+                colClass[lang] = 'col-neutral';
+            } else if (nonEmpty.length === 1) {
+                colClass[lang] = 'col-differ';
+            } else {
+                const lowerFirst = nonEmpty[0].toLowerCase();
+                if (nonEmpty.every(t => t.toLowerCase() === lowerFirst)) {
+                    colClass[lang] = 'col-match';
+                } else {
+                    colClass[lang] = 'col-differ';
+                }
+            }
+        }
+
         const table = document.createElement('table');
         table.className = 'results-table';
 
         // Header: Model | Spanish | French | German | Korean | Chinese | Japanese
         const thead = document.createElement('thead');
         const headerRow = document.createElement('tr');
-        headerRow.innerHTML = '<th>Model</th>' + selectedLangs.map(l => '<th>' + (LANG_NAMES[l] || l) + '</th>').join('');
+        headerRow.innerHTML = '<th>Model</th>' + selectedLangs.map(l => {
+            let h = '<th class="' + colClass[l] + '">' + (LANG_NAMES[l] || l);
+            if (modelOrder.length > 1) {
+                h += ' <button class="check-btn" data-lang="' + l + '" data-engine="google">G</button>';
+                h += ' <button class="check-btn" data-lang="' + l + '" data-engine="grok">X</button>';
+            }
+            h += '</th>';
+            return h;
+        }).join('');
         thead.appendChild(headerRow);
         table.appendChild(thead);
 
         // One row per model, one cell per language
         const tbody = document.createElement('tbody');
+        const multiModel = modelOrder.length > 1;
         for (const modelKey of modelOrder) {
             const tr = document.createElement('tr');
             const shortName = modelKey.split('/').pop().replace(':free', '');
@@ -393,12 +570,15 @@
             for (const lang of selectedLangs) {
                 const row = modelMap[modelKey][lang];
                 if (row && row.translation) {
-                    rowHtml += '<td class="trans-cell">' + escapeHtml(row.translation) +
-                        ' <button class="copy-btn" data-text="' + escapeAttr(row.translation) + '">Copy</button></td>';
+                    rowHtml += '<td class="trans-cell ' + colClass[lang] + '" data-raw="' + escapeAttr(row.translation) + '" data-model="' + escapeAttr(shortName) + '" data-lang="' + lang + '">' +
+                        escapeHtml(row.translation) +
+                        ' <button class="copy-btn" data-text="' + escapeAttr(row.translation) + '">Copy</button>' +
+                        (multiModel ? ' <button class="select-btn" data-lang="' + lang + '" title="Select this translation"></button>' : '') +
+                        '</td>';
                 } else if (row && row.warnings && row.warnings.length) {
-                    rowHtml += '<td class="trans-cell"><span class="err-text">' + escapeHtml(row.warnings[0].substring(0, 80)) + '...</span></td>';
+                    rowHtml += '<td class="trans-cell ' + colClass[lang] + '" data-raw="" data-model="' + escapeAttr(shortName) + '" data-lang="' + lang + '"><span class="err-text">' + escapeHtml(row.warnings[0].substring(0, 80)) + '...</span></td>';
                 } else {
-                    rowHtml += '<td class="trans-cell">-</td>';
+                    rowHtml += '<td class="trans-cell ' + colClass[lang] + '" data-raw="" data-model="' + escapeAttr(shortName) + '" data-lang="' + lang + '">-</td>';
                 }
             }
             tr.innerHTML = rowHtml;
@@ -406,7 +586,67 @@
         }
         table.appendChild(tbody);
         container.appendChild(table);
+
+        // Auto-select first model's translation for consistent columns (or single model)
+        for (const lang of selectedLangs) {
+            if (colClass[lang] === 'col-match' || !multiModel) {
+                const firstRow = modelOrder[0];
+                const row = modelMap[firstRow][lang];
+                if (row && row.translation) {
+                    const cell = container.querySelector('.trans-cell[data-lang="' + lang + '"][data-model="' + escapeAttr(firstRow.split('/').pop().replace(':free', '')) + '"]');
+                    if (cell) {
+                        const btn = cell.querySelector('.select-btn');
+                        if (btn) {
+                            btn.classList.add('selected');
+                            btn.textContent = '✓';
+                            cell.classList.add('cell-selected');
+                        }
+                        glossarySelections[lang] = row.translation;
+                    }
+                }
+            }
+        }
+        checkGlossaryReady();
     }
+
+    // Case transformation buttons
+    document.getElementById('case-toolbar').addEventListener('click', (e) => {
+        if (!e.target.classList.contains('case-btn')) return;
+        const mode = e.target.dataset.case;
+        document.querySelectorAll('#results-container .trans-cell').forEach(td => {
+            const raw = td.dataset.raw;
+            if (!raw) return;
+            let transformed;
+            if (mode === 'upper') {
+                transformed = raw.toUpperCase();
+            } else if (mode === 'proper') {
+                transformed = raw.replace(/\b\w/g, c => c.toUpperCase());
+            } else {
+                transformed = raw.toLowerCase();
+            }
+            // Keep copy and select buttons, update display text
+            const copyBtn = td.querySelector('.copy-btn');
+            const selectBtn = td.querySelector('.select-btn');
+            const errSpan = td.querySelector('.err-text');
+            if (errSpan) return; // Don't transform error cells
+            if (copyBtn) {
+                const span = document.createElement('span');
+                span.textContent = transformed;
+                td.innerHTML = '';
+                td.appendChild(span);
+                td.appendChild(document.createTextNode(' '));
+                copyBtn.dataset.text = transformed;
+                td.appendChild(copyBtn);
+                if (selectBtn) td.appendChild(document.createTextNode(' '));
+                if (selectBtn) td.appendChild(selectBtn);
+                // Update data-raw and glossary selection if selected
+                td.dataset.raw = transformed;
+                if (td.classList.contains('cell-selected')) {
+                    glossarySelections[td.dataset.lang] = transformed;
+                }
+            }
+        });
+    });
 
     document.getElementById('results-container').addEventListener('click', (e) => {
         if (e.target.classList.contains('copy-btn')) {
@@ -414,6 +654,89 @@
                 e.target.textContent = 'Copied!';
                 setTimeout(() => e.target.textContent = 'Copy', 1500);
             });
+        }
+        if (e.target.classList.contains('select-btn')) {
+            const lang = e.target.dataset.lang;
+            // Radio behavior: deselect all in this language column
+            document.querySelectorAll('#results-container .select-btn[data-lang="' + lang + '"]').forEach(btn => {
+                btn.classList.remove('selected');
+                btn.textContent = '';
+                btn.closest('.trans-cell').classList.remove('cell-selected');
+            });
+            // Select this one
+            e.target.classList.add('selected');
+            e.target.textContent = '✓';
+            const cell = e.target.closest('.trans-cell');
+            cell.classList.add('cell-selected');
+            glossarySelections[lang] = cell.dataset.raw;
+            checkGlossaryReady();
+        }
+        if (e.target.classList.contains('check-btn')) {
+            const lang = e.target.dataset.lang;
+            const langName = LANG_NAMES[lang] || lang;
+            const engine = e.target.dataset.engine || 'google';
+            // Collect all translations for this language column
+            const cells = document.querySelectorAll('#results-container .trans-cell');
+            const pairs = [];
+            const colIdx = Array.from(document.querySelectorAll('#results-container thead th')).findIndex(th => th.textContent.includes(langName));
+            if (colIdx < 0) return;
+            document.querySelectorAll('#results-container tbody tr').forEach(tr => {
+                const cell = tr.children[colIdx];
+                if (cell) {
+                    const model = cell.dataset.model || '';
+                    const raw = cell.dataset.raw || '';
+                    if (raw) pairs.push({model, text: raw});
+                }
+            });
+            if (pairs.length < 2) return;
+            const inputText = document.getElementById('input-text').value.trim();
+            const query = 'my english is "' + inputText + '" translate to ' + langName.toLowerCase() + ', ' + pairs.map(p => '"' + p.text + '"').join(' & ') + ', pick one is the most suitable for printed in wash care printed label, with reason reply in english';
+            if (engine === 'grok') {
+                window.open('https://grok.com/?q=' + encodeURIComponent(query), '_blank');
+            } else {
+                window.open('https://www.google.com/search?q=' + encodeURIComponent(query), '_blank');
+            }
+        }
+    });
+
+    // Add to Glossary modal handlers
+    document.getElementById('add-glossary-btn')?.addEventListener('click', () => {
+        const inputText = document.getElementById('input-text').value.trim();
+        document.getElementById('gloss-term').value = inputText;
+        // Show selected translations
+        const preview = document.getElementById('gloss-preview');
+        preview.innerHTML = '';
+        for (const [lang, text] of Object.entries(glossarySelections)) {
+            const p = document.createElement('p');
+            p.style.cssText = 'font-size:13px;margin:4px 0;';
+            p.innerHTML = '<strong>' + (LANG_NAMES[lang] || lang) + ':</strong> ' + escapeHtml(text);
+            preview.appendChild(p);
+        }
+        document.getElementById('add-glossary-modal').classList.remove('hidden');
+    });
+
+    document.getElementById('cancel-glossary-add')?.addEventListener('click', () => {
+        document.getElementById('add-glossary-modal').classList.add('hidden');
+    });
+
+    document.getElementById('add-glossary-form')?.addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const term_en = document.getElementById('gloss-term').value.trim();
+        const category = document.getElementById('gloss-category').value;
+        const notes = document.getElementById('gloss-notes').value.trim();
+        const resp = await fetch('/api/terms', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({term_en, category, translations: glossarySelections, notes})
+        });
+        const data = await resp.json();
+        if (data.ok) {
+            document.getElementById('add-glossary-modal').classList.add('hidden');
+            document.getElementById('add-glossary-bar').classList.add('hidden');
+            alert('Added to glossary!');
+            loadGlossaryForHints();
+        } else {
+            alert('Error: ' + data.error);
         }
     });
 
@@ -457,8 +780,8 @@
         for (const [col, query] of Object.entries(colFilters)) {
             if (!query) continue;
             filtered = filtered.filter(term => {
-                if (col === 'term_en' || col === 'category' || col === 'id') {
-                    return fuzzyMatch(String(term[col]), query);
+                if (col === 'term_en' || col === 'category' || col === 'notes' || col === 'id') {
+                    return fuzzyMatch(String(term[col] || ''), query);
                 }
                 return fuzzyMatch(term.translations[col] || '', query);
             });
@@ -468,7 +791,7 @@
         filtered.sort((a, b) => {
             let va, vb;
             if (sortCol === 'id') { va = a.id; vb = b.id; }
-            else if (sortCol === 'term_en' || sortCol === 'category') { va = (a[sortCol]||'').toLowerCase(); vb = (b[sortCol]||'').toLowerCase(); }
+            else if (sortCol === 'term_en' || sortCol === 'category' || sortCol === 'notes') { va = (a[sortCol]||'').toLowerCase(); vb = (b[sortCol]||'').toLowerCase(); }
             else { va = (a.translations[sortCol]||'').toLowerCase(); vb = (b.translations[sortCol]||'').toLowerCase(); }
 
             if (va < vb) return sortAsc ? -1 : 1;
@@ -506,7 +829,11 @@
                         <button class="edit-btn" data-id="${term.id}" data-lang="${lang}" data-term="${escapeAttr(term.term_en)}" data-trans="${escapeAttr(term.translations[lang] || '')}">Edit</button>
                     </td>
                 `).join('')}
-                <td><button class="verify-btn" data-id="${term.id}">Verify</button></td>
+                <td>${escapeHtml(term.notes || '')}</td>
+                <td>
+                    <button class="verify-btn" data-id="${term.id}">Verify</button>
+                    <button class="delete-btn" data-id="${term.id}" data-term="${escapeAttr(term.term_en)}">Delete</button>
+                </td>
             `;
             tbody.appendChild(tr);
         }
@@ -548,16 +875,17 @@
             const input = document.getElementById('trans-' + lang.replace('zh-CN','zh'));
             if (input && input.value.trim()) translations[lang] = input.value.trim();
         });
+        const notes = document.getElementById('new-notes').value.trim();
         const resp = await fetch('/api/terms', {
             method: 'POST', headers: {'Content-Type':'application/json'},
-            body: JSON.stringify({term_en, category, translations})
+            body: JSON.stringify({term_en, category, translations, notes})
         });
         const data = await resp.json();
         if (data.ok) { document.getElementById('add-modal').classList.add('hidden'); loadTerms(); loadGlossaryForHints(); }
         else alert('Error: ' + data.error);
     });
 
-    document.getElementById('terms-body').addEventListener('click', (e) => {
+    document.getElementById('terms-body').addEventListener('click', async (e) => {
         if (e.target.classList.contains('edit-btn')) {
             document.getElementById('edit-term-id').value = e.target.dataset.id;
             document.getElementById('edit-lang-code').value = e.target.dataset.lang;
@@ -569,6 +897,13 @@
         if (e.target.classList.contains('verify-btn')) {
             fetch(`/api/terms/${e.target.dataset.id}/verify`, {method:'POST'});
             e.target.textContent = 'Verified'; e.target.disabled = true;
+        }
+        if (e.target.classList.contains('delete-btn')) {
+            const termName = e.target.dataset.term;
+            if (!confirm('Delete "' + termName + '"?')) return;
+            const resp = fetch(`/api/terms/${e.target.dataset.id}`, {method:'DELETE'});
+            const data = (await resp.then(r=>r.json()));
+            if (data.ok) { loadTerms(); loadGlossaryForHints(); }
         }
     });
 

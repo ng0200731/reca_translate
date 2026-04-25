@@ -2,6 +2,7 @@
 import json
 import os
 import sys
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from pathlib import Path
 
 from flask import Flask, jsonify, render_template, request
@@ -13,7 +14,7 @@ sys.path.insert(0, str(ROOT))
 from tools.glossary_manager import (
     LANGUAGES, CATEGORIES, get_db, search_term as gm_search,
     list_terms as gm_list, add_term as gm_add, verify_term as gm_verify,
-    export_csv as gm_export, import_csv as gm_import
+    delete_term as gm_delete, export_csv as gm_export, import_csv as gm_import
 )
 from tools.translator import translate_text, translate_text_multi, translate_with_model, get_available_backends
 from tools.llm_client import (
@@ -102,9 +103,11 @@ def translate():
 
     from tools.translator import translate_with_model
     rows = []
-    for m in models:
-        rows.extend(translate_with_model(text, languages, m["backend"], m.get("model", "")))
-
+    # Run all models in parallel with 3-minute overall timeout
+    with ThreadPoolExecutor(max_workers=len(models)) as pool:
+        futs = {pool.submit(translate_with_model, text, languages, m["backend"], m.get("model", "")): i for i, m in enumerate(models)}
+        for fut in as_completed(futs, timeout=180):
+            rows.extend(fut.result())
     return jsonify({"results": rows})
 
 
@@ -179,6 +182,7 @@ def api_add_term():
     term_en = data.get("term_en", "").strip()
     category = data.get("category", "").strip()
     translations = data.get("translations", {})
+    notes = data.get("notes", "").strip()
 
     if not term_en or not category:
         return jsonify({"error": "Term and category required"}), 400
@@ -186,7 +190,7 @@ def api_add_term():
     if category not in CATEGORIES:
         return jsonify({"error": f"Invalid category. Must be one of: {CATEGORIES}"}), 400
 
-    success = gm_add(term_en, category, translations)
+    success = gm_add(term_en, category, translations, notes or None)
     if success:
         return jsonify({"ok": True})
     else:
@@ -198,6 +202,12 @@ def api_verify_term(term_id):
     data = request.get_json()
     language = data.get("language")
     gm_verify(term_id, language)
+    return jsonify({"ok": True})
+
+
+@app.route("/api/terms/<int:term_id>", methods=["DELETE"])
+def api_delete_term(term_id):
+    gm_delete(term_id)
     return jsonify({"ok": True})
 
 

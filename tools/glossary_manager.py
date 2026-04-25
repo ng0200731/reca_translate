@@ -123,7 +123,7 @@ def list_terms(category=None):
 
     conn.close()
 
-def add_term(term_en, category, translations=None):
+def add_term(term_en, category, translations=None, notes=None):
     """Add a new term with translations."""
     conn = get_db()
     cursor = conn.cursor()
@@ -146,8 +146,8 @@ def add_term(term_en, category, translations=None):
 
     # Insert term
     cursor.execute(
-        "INSERT INTO terms (id, term_en, category, normalized_en) VALUES (?, ?, ?, ?)",
-        (next_id, term_en, category, normalized)
+        "INSERT INTO terms (id, term_en, category, normalized_en, notes) VALUES (?, ?, ?, ?, ?)",
+        (next_id, term_en, category, normalized, notes)
     )
     term_id = next_id
 
@@ -163,6 +163,16 @@ def add_term(term_en, category, translations=None):
     conn.close()
     print(f"[OK] Term added: '{term_en}' (ID: {term_id})")
     return True
+
+def delete_term(term_id):
+    """Delete a term and all its translations."""
+    conn = get_db()
+    cursor = conn.cursor()
+    cursor.execute("DELETE FROM translations WHERE term_id = ?", (term_id,))
+    cursor.execute("DELETE FROM terms WHERE id = ?", (term_id,))
+    conn.commit()
+    conn.close()
+    print(f"[OK] Term {term_id} deleted")
 
 def verify_term(term_id, language=None):
     """Mark term translations as verified."""
