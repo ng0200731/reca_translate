@@ -341,6 +341,7 @@
             link.classList.add('active');
             document.querySelectorAll('.tab-panel').forEach(p => p.classList.add('hidden'));
             document.getElementById('tab-' + tab).classList.remove('hidden');
+            if (tab === 'glossary') loadTerms();
         });
     });
 
@@ -499,6 +500,7 @@
 
             renderResults(data.results);
             document.getElementById('results').classList.remove('hidden');
+            document.getElementById('results').scrollIntoView({ behavior: 'smooth', block: 'start' });
         } catch (err) {
             document.getElementById('results').classList.remove('hidden');
             document.getElementById('results-container').innerHTML =
@@ -632,7 +634,6 @@
                         const btn = cell.querySelector('.select-btn');
                         if (btn) {
                             btn.classList.add('selected');
-                            btn.textContent = '✓';
                             cell.classList.add('cell-selected');
                         }
                         glossarySelections[lang] = row.translation;
@@ -694,19 +695,16 @@
             if (e.target.classList.contains('selected')) {
                 // Toggle off: deselect this one
                 e.target.classList.remove('selected');
-                e.target.textContent = '';
                 e.target.closest('.trans-cell').classList.remove('cell-selected');
                 delete glossarySelections[lang];
             } else {
                 // Radio behavior: deselect all in this language column
                 document.querySelectorAll('#results-container .select-btn[data-lang="' + lang + '"]').forEach(btn => {
                     btn.classList.remove('selected');
-                    btn.textContent = '';
                     btn.closest('.trans-cell').classList.remove('cell-selected');
                 });
                 // Select this one
                 e.target.classList.add('selected');
-                e.target.textContent = '✓';
                 const cell = e.target.closest('.trans-cell');
                 cell.classList.add('cell-selected');
                 glossarySelections[lang] = cell.dataset.raw;
@@ -781,8 +779,11 @@
         if (data.ok) {
             document.getElementById('add-glossary-modal').classList.add('hidden');
             document.getElementById('add-glossary-bar').classList.add('hidden');
-            alert('Added to glossary!');
-            loadGlossaryForHints();
+            await loadGlossaryForHints();
+            showGlossaryHints();
+            if (!document.getElementById('tab-glossary').classList.contains('hidden')) {
+                loadTerms();
+            }
         } else {
             alert('Error: ' + data.error);
         }
@@ -872,8 +873,12 @@
                 <td>${escapeHtml(term.term_en)}</td>
                 <td>${escapeHtml(term.category)}</td>
                 ${LANG_COLS.map(lang => `
-                    <td class="trans-cell">
-                        <span>${escapeHtml(term.translations[lang] || '')}</span>
+                    <td class="trans-cell gloss-cell" data-id="${term.id}" data-lang="${lang}">
+                        <span class="gloss-text">${escapeHtml(term.translations[lang] || '')}</span>
+                        <span class="gloss-actions">
+                            <button class="gloss-copy-btn" data-text="${escapeAttr(term.translations[lang] || '')}" title="Copy">Copy</button>
+                            <button class="gloss-select-btn" data-id="${term.id}" data-lang="${lang}" title="Select"></button>
+                        </span>
                         <button class="edit-btn" data-id="${term.id}" data-lang="${lang}" data-term="${escapeAttr(term.term_en)}" data-trans="${escapeAttr(term.translations[lang] || '')}" title="Edit"><svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 3a2.85 2.85 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"/></svg></button>
                     </td>
                 `).join('')}
@@ -937,6 +942,17 @@
         const editBtn = e.target.closest('.edit-btn');
         const verifyBtn = e.target.closest('.verify-btn');
         const deleteBtn = e.target.closest('.delete-btn');
+        const copyBtn = e.target.closest('.gloss-copy-btn');
+        const selectBtn = e.target.closest('.gloss-select-btn');
+        if (copyBtn) {
+            navigator.clipboard.writeText(copyBtn.dataset.text);
+            copyBtn.textContent = 'Copied';
+            setTimeout(() => { copyBtn.textContent = 'Copy'; }, 1000);
+        }
+        if (selectBtn) {
+            selectBtn.classList.toggle('selected');
+            selectBtn.closest('.gloss-cell').classList.toggle('cell-highlight');
+        }
         if (editBtn) {
             document.getElementById('edit-term-id').value = editBtn.dataset.id;
             document.getElementById('edit-lang-code').value = editBtn.dataset.lang;

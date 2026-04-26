@@ -1,6 +1,14 @@
 @echo off
 cd /d "%~dp0"
 
+REM Start LibreTranslate container
+echo Starting LibreTranslate (Docker)...
+docker compose up -d 2>nul
+if errorlevel 1 (
+    echo WARNING: Docker not running or LibreTranslate failed to start.
+    echo          Translations will still work with other backends.
+)
+
 set PYTHON=%LOCALAPPDATA%\Programs\Python\Python311\python.exe
 if not exist "%PYTHON%" set PYTHON=python
 
